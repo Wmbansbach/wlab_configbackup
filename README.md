@@ -11,7 +11,7 @@ Personal backup script for configuration files, etc. This is ran as part of a ta
 --------------------------------------------------
 # Documentation:                 
  * Logging
-   > B:\_logs\configbackup.log
+   > B:\\_logs\configbackup.log
 
 --------------------------------------------------
 # Device List:                 
