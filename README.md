@@ -16,8 +16,8 @@ Personal backup script for configuration files, etc. This is ran as part of a ta
 --------------------------------------------------
 # Device List:                 
  * pihole Server
- * OPNsense Router
- * utility Server
+ * opnsense Router
+ * utility Server (ansible, grafana)
  * Unifi Network Application
 
 --------------------------------------------------
