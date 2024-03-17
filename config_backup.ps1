@@ -63,16 +63,10 @@ Add-Content -Path $runlog -Value ("`n.")
 Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    ********************************************* CONFIG BACKUP START *********************************************")
 Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Current User: " + ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name))
 
-foreach ($path in env:Path) {
-    Write-Host
-}
-
-## Move to PuTTY Directory.
-Set-Location -Path "C:\Program Files\PuTTY"
-
 ## Check for Utility Server
 Add-Content -Path $runlog -Value ("`n`n" + (Get-Date).ToString() + "    -    ********************* UTILITY SERVER BACKUP START *********************")
 Add-Content -Path $runlog -Value ("`n`n.")
+
 
 If ((Test-NetConnection -ComputerName 192.168.10.18).PingSucceeded) {
 
