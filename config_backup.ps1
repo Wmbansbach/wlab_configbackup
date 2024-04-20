@@ -8,14 +8,15 @@
 #--------------------------------------------------
 # Documentation:                 
 # * Logging
-#   > B:\_logs\configbackup.log
+#   > Backup Log - D:\Datastore\William\_sysadmin\logs\configbackup.log
 #
 #--------------------------------------------------
 # Device List:                 
-# * pihole Server
+# * pihole DNS Server
 # * OPNsense Router
-# * utility Server
-# * Unifi Network Application
+# * Utility Server (Ansible, Grafana, Uptime Kuma)
+# * Unifi WNC Server
+# * CUPS Print Server
 #
 #--------------------------------------------------
 # Change Log:
@@ -33,14 +34,27 @@
 #   - Consolidated logging files & added better formatting for logging file
 # * 10/22/2023
 #   - Replaced PW authentication with PKI auth. for all devices besides opnsense
-#   - Updated Logging
-#
+#   - Updated logging
+# * 03/17/2024
+#   - PKI is used to connect to all devices. Updated some commenting.
+#   - Removed remaining references to PW authentication method.
+#   - Added all working directories (PuTTY, 7Zip) to $env:Path
+# * 03/23/2024
+#   - Removed Unifi References until WNC is migrated to new debian box
+# * 03/24/2024
+#   - Updated references to directories that have been moved. 
+#   - Updated references to IP addresses that have been changed.
+# * 03/30/2024
+#   - Added new section for Unifi WNC Server
+#   - Added new section for CUPS Print Server
+#   - Updated each device to backup their .ssh folder
+#   - Updated logging
 #--------------------------------------------------
 # Known Issues:
 # 1. (Fixed) Must add auth. here for ansible user. Should have Least Priv.
 # 2. PiHole_Backup.yml must be ran before backing up which is done via ansible playbook.
-# 2.1 PiHole_Backup.yml ensures that the most update to date file is backed-up from pihole.
-# 3. This script assumes that you have added the PuTTY & 7Zip directories to the PATH evironment variable. Fix is coming to check then set if needed.
+# 2.1 PiHole_Backup.yml ensures that the most up to date file is backed-up from pihole.
+# 3. Must allow access to /var/lib/unifi/backup for user wncadmin 
 #
 #--------------------------------------------------
 # Notes:
@@ -52,10 +66,9 @@
 $ErrorActionPreference = 'SilentlyContinue'
 
 ## Set Vars
-$runlog = "B:\_logs\configbackup.log"
-$key = "C:\Users\Administrator\.ssh\WMSERVER.ppk"
+$runlog = "D:\Datastore\William\_sysadmin\logs\configbackup.log"
+$key = "C:\Users\ansible_svc\.ssh\ansible_svc.ppk"
 $starttime = Get-Date
-
 
 ## Start logging
 Add-Content -Path $runlog -Value ("`n`nNew Session Started @ " + (Get-Date).ToString())
@@ -63,35 +76,49 @@ Add-Content -Path $runlog -Value ("`n.")
 Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    ********************************************* CONFIG BACKUP START *********************************************")
 Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Current User: " + ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name))
 
-## Check for Utility Server
-Add-Content -Path $runlog -Value ("`n`n" + (Get-Date).ToString() + "    -    ********************* UTILITY SERVER BACKUP START *********************")
-Add-Content -Path $runlog -Value ("`n`n.")
+## Move to PuTTY Directory.
+Set-Location -Path "C:\Program Files\PuTTY"
 
 
-If ((Test-NetConnection -ComputerName 192.168.10.18).PingSucceeded) {
+##__________________________________________
+##
+## Check for then backup Utility Server
+##___________________________________________
+
+Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    ********************* UTILITY SERVER BACKUP START *********************")
+Add-Content -Path $runlog -Value ("`n.")
+
+If ((Test-NetConnection -ComputerName 192.168.10.55).PingSucceeded) {
 
     ## Logging
-    Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Ping Successul on 192.168.10.18... Starting Copy.")
+    Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Ping Successul on 192.168.10.55... Starting Copy.")
 
     ## Pull a copy of ansible directory
-    .\pscp.exe -v -r -i $key "auto@192.168.10.18:/etc/ansible/*" "B:\config_backups\utility\ansible\." | Add-Content -Path $runlog
+    .\pscp.exe -v -r -i $key "auto@192.168.10.55:/etc/ansible/*" "D:\Datastore\William\_sysadmin\backups\config_backups\utility\ansible\." | Add-Content -Path $runlog
 
     ## Pull a copy of crontab file
-    .\pscp.exe -v -r -i $key "auto@192.168.10.18:/etc/crontab" "B:\config_backups\utility\crontab\." | Add-Content -Path $runlog
-     
+    .\pscp.exe -v -r -i $key "auto@192.168.10.55:/etc/crontab" "D:\Datastore\William\_sysadmin\backups\config_backups\utility\crontab\." | Add-Content -Path $runlog
+    
+    ## Pull a copy of .ssh folder
+    .\pscp.exe -v -r -i $key "auto@192.168.10.55:/home/auto/.ssh/*" "D:\Datastore\William\_sysadmin\backups\config_backups\utility\ssh\." | Add-Content -Path $runlog
+      
 }
 
 ## Failed to Connect
 Else {
    
     ## Logging
-    Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Ansible Server @ 192.168.10.18 not found...")
+    Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Ansible Server @ 192.168.10.55 not found...")
 }
 
 
-## Check for Pihole Server
-Add-Content -Path $runlog -Value ("`n`n" + (Get-Date).ToString() + "    -    ********************* PIHOLE DNS SERVER BACKUP START *********************")
-Add-Content -Path $runlog -Value ("`n`n.")
+##__________________________________________
+##
+## Check for then backup DNS Server
+##___________________________________________
+
+Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    ********************* PIHOLE DNS SERVER BACKUP START *********************")
+Add-Content -Path $runlog -Value ("`n.")
 
 If ((Test-NetConnection -ComputerName 192.168.10.25).PingSucceeded) {
 
@@ -99,7 +126,10 @@ If ((Test-NetConnection -ComputerName 192.168.10.25).PingSucceeded) {
     Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Ping Successul on 192.168.10.25... Starting Copy.")
 
     ## Run Secure Copy to pull copy of teleporter backup directory for PiHole
-    .\pscp.exe -v -r -i $key "domain_admin@192.168.10.25:/home/domain_admin/pihole_backups/*" "B:\config_backups\pihole\." | Add-Content -Path $runlog
+    .\pscp.exe -v -r -i $key "domain_admin@192.168.10.25:/home/domain_admin/pihole_backups/*" "D:\Datastore\William\_sysadmin\backups\config_backups\pihole\." | Add-Content -Path $runlog
+
+    ## Pull a copy of .ssh folder
+    .\pscp.exe -v -r -i $key "domain_admin@192.168.10.25:/home/domain_admin/.ssh/*" "D:\Datastore\William\_sysadmin\backups\config_backups\pihole\ssh\." | Add-Content -Path $runlog
 
 }
 
@@ -111,9 +141,13 @@ Else {
 }
 
 
-## Check for opnsense Router
-Add-Content -Path $runlog -Value ("`n`n" + (Get-Date).ToString() + "    -    ********************* OPNSENSE ROUTER BACKUP START *********************")
-Add-Content -Path $runlog -Value ("`n`n.")
+##__________________________________________
+##
+## Check for then backup Router
+##___________________________________________
+
+Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    ********************* OPNSENSE ROUTER BACKUP START *********************")
+Add-Content -Path $runlog -Value ("`n.")
 
 If ((Test-NetConnection -ComputerName 192.168.10.1).PingSucceeded) {
 
@@ -121,7 +155,10 @@ If ((Test-NetConnection -ComputerName 192.168.10.1).PingSucceeded) {
     Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Ping Successul on 192.168.10.1... Starting Copy.")
 
     ## Run Secure Copy to pull backup of opnsense configuration file.
-    .\pscp.exe -v -r -i $key "ansible_svc@192.168.10.1:/conf/config.xml" "B:\config_backups\opnsense\." | Add-Content -Path $runlog
+    .\pscp.exe -v -r -i $key "ansible_svc@192.168.10.1:/conf/config.xml" "D:\Datastore\William\_sysadmin\backups\config_backups\opnsense\." | Add-Content -Path $runlog
+
+    ## Pull a copy of .ssh folder
+    .\pscp.exe -v -r -i $key "ansible_svc@192.168.10.1:/home/ansible_svc/.ssh/*" "D:\Datastore\William\_sysadmin\backups\config_backups\opnsense\ssh\." | Add-Content -Path $runlog
 
 }
 
@@ -132,27 +169,72 @@ Else {
 }
 
 
-## Backup Local Unifi Network Application's Backup Directory
-Add-Content -Path $runlog -Value ("`n`n" + (Get-Date).ToString() + "    -    ********************* UNIFI LOCAL BACKUP START *********************")
-Add-Content -Path $runlog -Value ("`n`n.")
-Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Unifi Network Application Backup on localhost... Starting Copy.")
+##__________________________________________
+##
+## Check for then backup Unifi Network Controller Server & Service
+##___________________________________________
 
-Copy-Item -Path "C:\Users\Administrator\Ubiquiti UniFi\data\backup\*" -Destination "B:\config_backups\unifi\" | Add-Content -Path $runlog
+Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    ********************* UNIFI WNC SERVER BACKUP START *********************")
+Add-Content -Path $runlog -Value ("`n.")
+
+If ((Test-NetConnection -ComputerName 192.168.10.60).PingSucceeded) {
+
+    ## Logging
+    Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Ping Successul on 192.168.10.60... Starting Copy.")
+
+    ## Run Secure Copy to pull backup of unify WNC configuration file.
+    .\pscp.exe -v -r -i $key "wncadmin@192.168.10.60:/home/wncadmin/unifi/*" "D:\Datastore\William\_sysadmin\backups\config_backups\unifi\." | Add-Content -Path $runlog
+
+    ## Pull a copy of .ssh folder
+    .\pscp.exe -v -r -i $key "wncadmin@192.168.10.60:/home/wncadmin/.ssh/*" "D:\Datastore\William\_sysadmin\backups\config_backups\unifi\ssh\." | Add-Content -Path $runlog
+
+}
+
+ ## Failed to Connect
+Else {
+
+    Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + " OPNsense Router @ 192.168.10.60 not found...")
+}
+
+
+##__________________________________________
+##
+## Check for then backup CUPS Print Server
+##___________________________________________
+
+Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    ********************* PRINT SERVER BACKUP START *********************")
+Add-Content -Path $runlog -Value ("`n.")
+
+If ((Test-NetConnection -ComputerName 192.168.10.50).PingSucceeded) {
+
+    ## Logging
+    Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    Ping Successul on 192.168.10.50... Starting Copy.")
+
+    ## Run Secure Copy to pull backup of unify WNC configuration file.
+    .\pscp.exe -v -r -i $key "prtadmin@192.168.10.50:/etc/cups/cupsd.conf" "D:\Datastore\William\_sysadmin\backups\config_backups\printserv\." | Add-Content -Path $runlog
+
+    ## Pull a copy of .ssh folder
+    .\pscp.exe -v -r -i $key "prtadmin@192.168.10.50:/home/prtadmin/.ssh/*" "D:\Datastore\William\_sysadmin\backups\config_backups\printserv\ssh\." | Add-Content -Path $runlog
+
+}
+
+## Failed to Connect
+Else {
+
+    Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + " Print Server @ 192.168.10.50 not found...")
+}
 
 
 ## Compress Contents of config_backups - set a name and timestamp
 ## Move to 7Zip directory
 Set-Location -Path "C:\Program Files\7-Zip"
-$update_path = "B:\config_backups\_archive\confbackup_archive" + $(Get-Date -Format "yyyyMMdd").ToString() + ".7z"
+$update_path = "D:\Datastore\William\_sysadmin\backups\config_backups\_archive\" + $(Get-Date -Format "yyyyMMdd").ToString() + "_configbackup" + ".7z"
 
 Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    ************************ BUILD ARCHIVE START ***********************")
 
-.\7z.exe a -r -spf2 -mx9 $update_path "B:\config_backups\*" -x!"B:\config_backups\_archive" | Add-Content -Path $runlog
-
+.\7z.exe a -r -spf2 -mx9 $update_path "D:\Datastore\William\_sysadmin\backups\config_backups\*" -x!"D:\Datastore\William\_sysadmin\backups\config_backups\_archive" | Add-Content -Path $runlog
 
 ## End Logging
 Add-Content -Path $runlog -Value ("`n.    -    Runtime Length: " + (New-TimeSpan -Start $starttime -End (Get-Date)).ToString())
 Add-Content -Path $runlog -Value ("`n" + (Get-Date).ToString() + "    -    ********************************************* CONFIG BACKUP END *********************************************")
-Add-Content -Path $runlog -Value ("`n.")
-Add-Content -Path $runlog -Value ("`n.")
 Add-Content -Path $runlog -Value ("`n.")
